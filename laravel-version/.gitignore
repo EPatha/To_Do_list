@@ -8,6 +8,8 @@
 /.fleet
 /.idea
 /.nova
+/todo-list-macos
+todo-list-macos/
 /.phpunit.cache
 /.vscode
 /.zed
