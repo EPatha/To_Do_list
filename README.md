@@ -1,7 +1,7 @@
 # Voice-Enabled Todo List Application
 
 ## Overview
-A modern Todo List application with voice input capability, developed by Ephesians Prismaranatha. This application allows users to manage their tasks through both traditional text input and voice commands.
+A modern Todo List application with voice input capability, developed by Ephesians Prismaranatha. This application allows users to manage their tasks through both traditional text input and voice commands..
 
 ## Features
 - ✅ Create new tasks using voice commands or text input
