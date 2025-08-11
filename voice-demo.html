@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recognition Demo - Todo List</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .voice-button {
+            transition: all 0.3s ease;
+        }
+        .voice-button.listening {
+            background: linear-gradient(45deg, #ef4444, #f59e0b);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .voice-status {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold mb-8 text-center">Todo List with Voice Recognition Demo</h1>
+            
+            <!-- Voice Recognition Controls -->
+            <div class="mb-8 text-center">
+                <button id="voiceButton" type="button" 
+                    class="voice-button px-8 py-4 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg">
+                    🎤 Voice Control
+                </button>
+                <div id="voiceStatus" class="voice-status mt-2">Klik untuk berbicara</div>
+                <div class="mt-2 text-xs text-gray-500">
+                    Katakan: "Tambah [task]", "Selesai [task]", "Hapus [task]", atau "Bantuan"
+                </div>
+            </div>
+            
+            <!-- Add Todo Form -->
+            <form id="addTodoForm" class="mb-8" onsubmit="addTodo(event)">
+                <div class="flex gap-4">
+                    <input id="todoInput" type="text" name="title" placeholder="Enter your todo or use voice command" required
+                        class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" 
+                        class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Add Todo
+                    </button>
+                </div>
+            </form>
+
+            <!-- Todo List -->
+            <div id="todoList" class="space-y-4">
+                <!-- Todos will be added here dynamically -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="text-gray-500 text-center py-8">
+                No todos yet. Add one above or use voice command!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple Todo Management (for demo purposes)
+        let todos = [];
+        let nextId = 1;
+
+        function renderTodos() {
+            const todoList = document.getElementById('todoList');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (todos.length === 0) {
+                todoList.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            todoList.innerHTML = todos.map(todo => `
+                <div class="todo-item flex items-center gap-4 p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+                    <input type="checkbox" ${todo.completed ? 'checked' : ''} 
+                        onchange="toggleTodo(${todo.id})"
+                        class="w-5 h-5 text-blue-500">
+                    
+                    <span class="todo-title flex-1 ${todo.completed ? 'line-through text-gray-500' : ''}">
+                        ${todo.title}
+                    </span>
+                    
+                    <button onclick="deleteTodo(${todo.id})" 
+                        class="delete-button px-3 py-1 text-red-500 hover:bg-red-100 rounded transition-colors">
+                        Delete
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addTodo(event) {
+            event.preventDefault();
+            const input = document.getElementById('todoInput');
+            const title = input.value.trim();
+            
+            if (title) {
+                todos.push({
+                    id: nextId++,
+                    title: title,
+                    completed: false
+                });
+                input.value = '';
+                renderTodos();
+            }
+        }
+
+        function toggleTodo(id) {
+            const todo = todos.find(t => t.id === id);
+            if (todo) {
+                todo.completed = !todo.completed;
+                renderTodos();
+            }
+        }
+
+        function deleteTodo(id) {
+            todos = todos.filter(t => t.id !== id);
+            renderTodos();
+        }
+
+        // Initial render
+        renderTodos();
+    </script>
+
+    <!-- Voice Recognition Script -->
+    <script>
+        /**
+         * Voice Recognition untuk Demo Todo List
+         */
+        class VoiceRecognition {
+            constructor() {
+                if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+                    alert('Maaf, browser Anda tidak mendukung fitur voice recognition. Gunakan Chrome atau Edge terbaru.');
+                    return;
+                }
+                
+                try {
+                    this.recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                    this.isListening = false;
+                    this.shouldRestart = false;
+                    this.setupRecognition();
+                } catch (e) {
+                    console.error('Error initializing speech recognition:', e);
+                    alert('Terjadi kesalahan saat menginisialisasi voice recognition.');
+                }
+            }
+
+            setupRecognition() {
+                this.recognition.continuous = false;
+                this.recognition.interimResults = false;
+                this.recognition.lang = 'id-ID';
+
+                this.recognition.onstart = () => {
+                    const button = document.getElementById('voiceButton');
+                    const status = document.getElementById('voiceStatus');
+                    if (button) button.classList.add('listening');
+                    if (status) status.textContent = 'Mendengarkan... (Klik untuk berhenti)';
+                };
+
+                this.recognition.onend = () => {
+                    if (this.isListening && this.shouldRestart) {
+                        setTimeout(() => {
+                            try {
+                                this.recognition.start();
+                            } catch (e) {
+                                console.error('Failed to restart recognition:', e);
+                                this.stopListening();
+                            }
+                        }, 100);
+                    } else {
+                        this.stopListening();
+                    }
+                };
+
+                this.recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript.toLowerCase();
+                    console.log('Voice command:', transcript);
+                    this.processCommand(transcript);
+                };
+
+                this.recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    const status = document.getElementById('voiceStatus');
+                    if (status) {
+                        status.textContent = 'Error: ' + event.error;
+                        setTimeout(() => {
+                            status.textContent = 'Klik untuk berbicara';
+                        }, 3000);
+                    }
+                };
+            }
+
+            processCommand(transcript) {
+                console.log('Processing transcript:', transcript);
+                
+                // Menambah task baru
+                if (transcript.includes('tambah') || transcript.includes('add')) {
+                    const taskTitle = transcript.replace(/tambah|add/gi, '').trim();
+                    if (taskTitle) {
+                        this.addTask(taskTitle);
+                    }
+                }
+                // Menandai task selesai
+                else if (transcript.includes('selesai') || transcript.includes('complete')) {
+                    const taskTitle = transcript.replace(/selesai|complete/gi, '').trim();
+                    this.markTaskAsComplete(taskTitle);
+                }
+                // Menghapus task
+                else if (transcript.includes('hapus') || transcript.includes('delete')) {
+                    const taskTitle = transcript.replace(/hapus|delete/gi, '').trim();
+                    this.deleteTask(taskTitle);
+                }
+                // Bersihkan semua task
+                else if (transcript.includes('bersihkan semua') || transcript.includes('clear all')) {
+                    this.clearAllTasks();
+                }
+                // Show help
+                else if (transcript.includes('bantuan') || transcript.includes('help')) {
+                    this.showHelp();
+                }
+            }
+
+            addTask(taskTitle) {
+                const input = document.getElementById('todoInput');
+                const form = document.getElementById('addTodoForm');
+                
+                if (input && form) {
+                    input.value = taskTitle;
+                    // Trigger form submission
+                    const event = new Event('submit', { bubbles: true, cancelable: true });
+                    form.dispatchEvent(event);
+                }
+            }
+
+            markTaskAsComplete(taskTitle) {
+                const found = todos.find(todo => 
+                    !todo.completed && todo.title.toLowerCase().includes(taskTitle)
+                );
+                
+                if (found) {
+                    toggleTodo(found.id);
+                    this.showMessage(`Task "${found.title}" ditandai selesai`);
+                } else {
+                    this.showMessage(`Task "${taskTitle}" tidak ditemukan atau sudah selesai`);
+                }
+            }
+
+            deleteTask(taskTitle) {
+                const found = todos.find(todo => 
+                    todo.title.toLowerCase().includes(taskTitle)
+                );
+                
+                if (found) {
+                    if (confirm(`Hapus task "${found.title}"?`)) {
+                        deleteTodo(found.id);
+                        this.showMessage(`Task "${found.title}" dihapus`);
+                    }
+                } else {
+                    this.showMessage(`Task "${taskTitle}" tidak ditemukan`);
+                }
+            }
+
+            clearAllTasks() {
+                if (todos.length > 0) {
+                    if (confirm('Hapus semua task?')) {
+                        todos = [];
+                        renderTodos();
+                        this.showMessage('Semua task dihapus');
+                    }
+                } else {
+                    this.showMessage('Tidak ada task untuk dihapus');
+                }
+            }
+
+            showHelp() {
+                const helpText = `
+Perintah Voice Recognition:
+- "Tambah [nama task]" - Menambah task baru
+- "Selesai [nama task]" - Menandai task selesai
+- "Hapus [nama task]" - Menghapus task
+- "Bersihkan semua" - Menghapus semua task
+- "Bantuan" - Menampilkan help ini
+
+Contoh:
+- "Tambah belajar JavaScript"
+- "Selesai belajar"
+- "Hapus JavaScript"
+                `;
+                alert(helpText);
+            }
+
+            showMessage(message) {
+                const status = document.getElementById('voiceStatus');
+                if (status) {
+                    const originalText = status.textContent;
+                    status.textContent = message;
+                    setTimeout(() => {
+                        status.textContent = originalText;
+                    }, 3000);
+                }
+            }
+
+            stopListening() {
+                this.isListening = false;
+                this.shouldRestart = false;
+                const button = document.getElementById('voiceButton');
+                const status = document.getElementById('voiceStatus');
+                
+                if (button) button.classList.remove('listening');
+                if (status) status.textContent = 'Klik untuk berbicara';
+            }
+
+            toggle() {
+                if (this.isListening) {
+                    this.recognition.stop();
+                    this.stopListening();
+                } else {
+                    this.isListening = true;
+                    this.shouldRestart = true;
+                    try {
+                        this.recognition.start();
+                    } catch (e) {
+                        console.error('Failed to start recognition:', e);
+                        this.stopListening();
+                    }
+                }
+            }
+        }
+
+        // Initialize voice recognition when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const voiceRecognition = new VoiceRecognition();
+            
+            const voiceButton = document.getElementById('voiceButton');
+            if (voiceButton) {
+                voiceButton.addEventListener('click', () => {
+                    voiceRecognition.toggle();
+                });
+            }
+        });
+    </script>
+</body>
+</html>
