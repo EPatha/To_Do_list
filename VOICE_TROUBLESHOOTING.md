@@ -1,5 +1,26 @@
 # 🎤 Voice Recognition Troubleshooting Guide
 
+## ❗ Masalah: Sering Mati-Nyala / Error Loop
+
+### 🔧 **SOLUSI UTAMA - Mode One-Shot**
+Voice recognition sekarang menggunakan **one-shot mode** yang lebih stabil:
+- ✅ Klik tombol sekali untuk mulai mendengar
+- ✅ Bicara dengan jelas
+- ✅ Otomatis berhenti setelah mendengar perintah
+- ✅ Klik lagi untuk perintah berikutnya
+
+### 📋 **Cara Pakai yang Benar:**
+1. **Klik** tombol voice
+2. **Tunggu** hingga muncul "Mendengarkan... Silakan bicara sekarang"
+3. **Bicara** langsung dengan jelas: "Tambah belajar JavaScript"
+4. **Tunggu** perintah diproses
+5. **Ulangi** dari langkah 1 untuk perintah berikutnya
+
+### ⚠️ **Yang TIDAK Boleh Dilakukan:**
+- ❌ Jangan klik tombol berkali-kali dengan cepat
+- ❌ Jangan bicara sebelum muncul "Mendengarkan..."
+- ❌ Jangan menunggu terlalu lama setelah tombol aktif
+
 ## 🔍 Masalah Umum dan Solusi
 
 ### 1. **Voice Recognition Sering Error**

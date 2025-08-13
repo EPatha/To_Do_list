@@ -18,6 +18,7 @@ class VoiceRecognition {
             this.restartCount = 0;
             this.maxRestartAttempts = 3;
             this.lastCommand = '';
+            this.hasError = false; // Flag untuk track error
             this.setupRecognition();
             this.showMessage('Voice recognition siap digunakan', 'success');
         } catch (e) {
@@ -27,80 +28,87 @@ class VoiceRecognition {
     }
 
     setupRecognition() {
-        // Konfigurasi yang lebih stabil
-        this.recognition.continuous = false;
-        this.recognition.interimResults = false;
+        // Konfigurasi dengan timeout yang lebih panjang
+        this.recognition.continuous = true;  // TRUE = continuous mode untuk tidak mati cepat
+        this.recognition.interimResults = true; // TRUE = lihat hasil sementara
         this.recognition.lang = 'id-ID';
         this.recognition.maxAlternatives = 1;
-        
-        // Tambahan setting untuk stabilitas
-        if (this.recognition.serviceURI) {
-            this.recognition.serviceURI = 'wss://www.google.com/speech-api/v2/recognize';
-        }
 
         this.recognition.onstart = () => {
-            console.log('Voice recognition started');
-            this.restartCount = 0; // Reset counter saat berhasil start
+            console.log('Voice recognition started (continuous mode)');
             const button = document.getElementById('voiceButton');
             const status = document.getElementById('voiceStatus');
             if (button) {
                 button.classList.add('listening');
                 button.disabled = false;
+                button.textContent = '🛑 Stop Listening';
             }
-            if (status) status.textContent = 'Mendengarkan... (Klik untuk berhenti)';
+            if (status) status.textContent = 'Mendengarkan... Silakan bicara (akan mendengar hingga Anda klik stop)';
         };
 
         this.recognition.onend = () => {
             console.log('Voice recognition ended');
-            const button = document.getElementById('voiceButton');
-            if (button) button.disabled = false;
             
-            if (this.isListening && this.shouldRestart && this.restartCount < this.maxRestartAttempts) {
-                this.restartCount++;
-                console.log(`Restarting recognition, attempt ${this.restartCount}`);
+            // JANGAN update UI di sini jika masih ingin listening
+            // Biarkan onstart yang handle UI update
+            
+            // HANYA restart jika user masih ingin listening dan tidak ada error
+            if (this.isListening && !this.hasError) {
+                console.log('Auto-restarting voice recognition to keep listening...');
                 setTimeout(() => {
-                    try {
-                        if (this.isListening) {
+                    if (this.isListening && !this.hasError) {
+                        try {
                             this.recognition.start();
+                        } catch (e) {
+                            console.error('Failed to restart:', e);
+                            this.stopListening();
                         }
-                    } catch (e) {
-                        console.error('Failed to restart recognition:', e);
-                        this.handleError('restart-failed', 'Gagal restart voice recognition');
                     }
-                }, 500); // Increase timeout for stability
+                }, 100);
             } else {
-                if (this.restartCount >= this.maxRestartAttempts) {
-                    this.showMessage('Terlalu banyak restart. Silakan coba lagi.', 'warning');
+                // Hanya update UI jika benar-benar berhenti
+                console.log('Voice recognition stopped - updating UI');
+                const button = document.getElementById('voiceButton');
+                const status = document.getElementById('voiceStatus');
+                
+                if (button) {
+                    button.classList.remove('listening');
+                    button.disabled = false;
+                    button.textContent = '🎤 Voice Control';
                 }
-                this.stopListening();
+                if (status) {
+                    status.style.color = '#6b7280';
+                    status.textContent = 'Klik untuk berbicara';
+                }
+                
+                this.isListening = false;
+                this.shouldRestart = false;
             }
         };
 
         this.recognition.onresult = (event) => {
             try {
-                const transcript = event.results[0][0].transcript.toLowerCase().trim();
-                const confidence = event.results[0][0].confidence;
-                
-                console.log('Voice command:', transcript, 'Confidence:', confidence);
-                
-                // Cek confidence level
-                if (confidence && confidence < 0.5) {
-                    this.showMessage('Suara kurang jelas, coba ulangi', 'warning');
-                    return;
-                }
-                
-                // Avoid processing same command twice
-                if (transcript === this.lastCommand) {
-                    console.log('Ignoring duplicate command');
-                    return;
-                }
-                
-                this.lastCommand = transcript;
-                this.processCommand(transcript);
-                
-                // Auto stop after successful command
-                if (this.isListening) {
-                    this.stopListening();
+                // Ambil hasil terbaru
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    const transcript = result[0].transcript.trim();
+                    const confidence = result[0].confidence;
+                    
+                    if (result.isFinal) {
+                        console.log('Final result:', transcript, 'Confidence:', confidence || 'unknown');
+                        
+                        // Proses command final
+                        if (transcript.length > 0) {
+                            this.processCommand(transcript.toLowerCase());
+                            // TIDAK stop otomatis - biarkan user yang stop manual
+                        }
+                    } else {
+                        // Tampilkan hasil sementara
+                        const status = document.getElementById('voiceStatus');
+                        if (status && transcript.length > 0) {
+                            status.textContent = `Mendengar: "${transcript}"... (lanjutkan bicara atau klik stop)`;
+                        }
+                    }
                 }
                 
             } catch (e) {
@@ -117,11 +125,12 @@ class VoiceRecognition {
 
     handleError(errorType, message) {
         console.log('Handling error:', errorType, message);
+        this.hasError = true; // Set error flag
         
         const errorMessages = {
             'network': 'Koneksi internet bermasalah. Cek koneksi Anda.',
             'not-allowed': 'Akses mikrofon ditolak. Izinkan akses mikrofon di browser.',
-            'no-speech': 'Tidak ada suara terdeteksi. Coba bicara lebih keras.',
+            'no-speech': 'Tidak ada suara terdeteksi. Masih mendengarkan...',
             'audio-capture': 'Mikrofon tidak dapat diakses. Cek perangkat audio.',
             'service-not-allowed': 'Layanan voice recognition tidak tersedia.',
             'language-not-supported': 'Bahasa tidak didukung.',
@@ -130,12 +139,19 @@ class VoiceRecognition {
         };
 
         const userMessage = errorMessages[errorType] || message || 'Terjadi kesalahan voice recognition';
-        this.showMessage(userMessage, 'error');
         
-        // Stop listening on critical errors
-        const criticalErrors = ['not-allowed', 'audio-capture', 'service-not-allowed'];
-        if (criticalErrors.includes(errorType)) {
-            this.stopListening();
+        // Untuk error 'no-speech', JANGAN stop listening - biarkan tetap jalan
+        if (errorType === 'no-speech') {
+            this.showMessage('Tidak mendengar suara. Masih mendengarkan...', 'warning');
+            this.hasError = false; // Reset error flag untuk no-speech
+            return; // JANGAN panggil stopListening()
+        } else {
+            this.showMessage(userMessage, 'error');
+            // Hanya stop untuk error serius
+            const criticalErrors = ['not-allowed', 'audio-capture', 'service-not-allowed'];
+            if (criticalErrors.includes(errorType)) {
+                this.stopListening();
+            }
         }
     }
 
@@ -346,6 +362,15 @@ TIPS:
         this.shouldRestart = false;
         this.restartCount = 0;
         this.lastCommand = '';
+        this.hasError = false; // Reset error flag
+        
+        try {
+            if (this.recognition) {
+                this.recognition.stop();
+            }
+        } catch (e) {
+            console.log('Recognition already stopped');
+        }
         
         const button = document.getElementById('voiceButton');
         const status = document.getElementById('voiceStatus');
@@ -353,38 +378,57 @@ TIPS:
         if (button) {
             button.classList.remove('listening');
             button.disabled = false;
+            button.textContent = '🎤 Voice Control';
         }
         if (status) {
             status.style.color = '#6b7280';
             status.textContent = 'Klik untuk berbicara';
         }
         
-        console.log('Voice recognition stopped');
+        console.log('Voice recognition stopped completely');
     }
 
     toggle() {
         if (this.isListening) {
+            // Stop listening - user clicked stop
+            console.log('User manually stopping voice recognition');
+            this.hasError = true; // Prevent auto-restart
+            this.isListening = false; // Set to false immediately
+            
             try {
                 this.recognition.stop();
-                this.stopListening();
             } catch (e) {
-                console.error('Error stopping recognition:', e);
-                this.stopListening();
+                console.log('Recognition already stopped');
             }
+            
+            // Force UI update immediately
+            this.stopListening();
         } else {
+            // Start listening - continuous mode
+            console.log('Starting voice recognition...');
             try {
-                // Reset state before starting
+                // Set state immediately
                 this.isListening = true;
-                this.shouldRestart = false; // Single command mode
-                this.restartCount = 0;
-                this.lastCommand = '';
+                this.shouldRestart = true;
+                this.hasError = false;
                 
                 const button = document.getElementById('voiceButton');
-                if (button) button.disabled = true; // Prevent multiple clicks
+                const status = document.getElementById('voiceStatus');
                 
+                // Update UI immediately to show starting
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = '⏳ Starting...';
+                }
+                if (status) {
+                    status.textContent = 'Memulai voice recognition...';
+                }
+                
+                // Start recognition immediately without delay
                 this.recognition.start();
+                
             } catch (e) {
-                console.error('Failed to start recognition:', e);
+                console.error('Error starting recognition:', e);
                 this.handleError('start-failed', 'Gagal memulai voice recognition');
                 this.stopListening();
             }
