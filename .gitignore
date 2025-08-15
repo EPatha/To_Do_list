@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+.env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+database/*.db
+
+# Models
+models/vosk/
+models/piper/
+*.zip
+
+# Audio files
+*.wav
+*.mp3
+
+# Config secrets
+.env
+config/secrets.py

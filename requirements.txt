@@ -1,0 +1,10 @@
+# Jarvis To-Do List AI - Dependencies
+asyncio>=3.4.3
+aiosqlite>=0.19.0
+requests>=2.31.0
+vosk>=0.3.45
+pyaudio>=0.2.11
+pygame>=2.5.0
+TTS>=0.22.0
+numpy>=1.24.0
+scipy>=1.10.0
