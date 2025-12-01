@@ -6,6 +6,7 @@ Debug version of main.py
 print("🔴 Starting debug_main.py...")
 
 try:
+
     print("🔴 Step 1: Basic imports...")
     import asyncio
     import signal
